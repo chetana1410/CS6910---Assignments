@@ -168,19 +168,19 @@ class feedforward_neural_network:
       
       for batch in mini_batches:
         X_batch,Y_batch=batch[0] , batch[1]
-          
-        for x, y in zip(X_batch, Y_batch):         
+        sz = len(X_batch)  
+        for x, y in zip(X_batch, Y_batch): 
           if optimizer == 'sgd' or optimizer == 'momentum' or optimizer == 'rmsprop' or optimizer == 'adam':
             self.back_propagation(x, y,self.W,self.B)
             for i in range(self.n_hidden_layers + 1):
-              dW[i+1] += self.dW[i+1]
-              dB[i+1] += self.dB[i+1]
+              dW[i+1] += self.dW[i+1]/sz
+              dB[i+1] += self.dB[i+1]/sz
 
           elif optimizer == 'nesterov' or optimizer == 'nadam':
             self.back_propagation(x, y, W_look_ahead, B_look_ahead)
             for i in range(self.n_hidden_layers + 1):
-              dW[i+1] += self.dW[i+1]
-              dB[i+1] += self.dB[i+1]
+              dW[i+1] += self.dW[i+1]/sz
+              dB[i+1] += self.dB[i+1]/sz
               #print(iters, i+1)
               #print(dW)
         
