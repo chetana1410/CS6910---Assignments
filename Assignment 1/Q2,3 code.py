@@ -38,14 +38,13 @@ class feedforward_neural_network:
       np.random.seed(0);
       if weight_initialization == 'random':        
         self.W[i+1] = np.random.randn(self.network[i], self.network[i+1])
-        #print(self.W[i+1])
         self.B[i+1] = np.zeros((1, self.network[i+1]))
-        #print(self.B[i+1])
       else:
         self.W[i+1] = np.random.normal(scale = math.sqrt(2 / np.sum((self.network[i], self.network[i+1]))), size = (self.network[i], self.network[i+1]))
         self.B[i+1] = np.random.normal(scale = math.sqrt(2 / np.sum((1, self.network[i+1]))), size = (1, self.network[i+1]))   
                 
   def create_mini_batches(self,X,Y,batch_size):    
+    
     mini_batches=[]
     data=np.hstack((X,Y))
     np.random.shuffle(data)
@@ -61,6 +60,7 @@ class feedforward_neural_network:
     return mini_batches
 
   def cross_entropy(self,Y_pred, Y_true, epsilon=1e-12):
+        
     Y_pred = np.clip(Y_pred, epsilon, 1. - epsilon)
     ce = -np.sum(Y_true*np.log2(Y_pred+1e-9))/Y_pred.shape[0]
     return ce
@@ -69,6 +69,7 @@ class feedforward_neural_network:
     return np.sqrt(np.sum((Y_true-Y_pred)**2)/len(Y_true))
 
   def accuracy(self,Y_true, Y_pred):
+        
     Y_true = [np.argmax(i) for i in Y_true]
     Y_pred = [np.argmax(i) for i in Y_pred]
     diff= np.array(Y_true) - np.array(Y_pred)
@@ -156,7 +157,6 @@ class feedforward_neural_network:
       B_look_ahead[i+1] = self.B[i+1]-M_B_updates[i + 1]
           
           
-    cou = 0
     for iters in range(epochs):
       dW = {}
       dB = {}
@@ -170,6 +170,7 @@ class feedforward_neural_network:
         X_batch,Y_batch=batch[0] , batch[1]
         sz = len(X_batch)  
         for x, y in zip(X_batch, Y_batch): 
+            
           if optimizer == 'sgd' or optimizer == 'momentum' or optimizer == 'rmsprop' or optimizer == 'adam':
             self.back_propagation(x, y,self.W,self.B)
             for i in range(self.n_hidden_layers + 1):
@@ -181,8 +182,7 @@ class feedforward_neural_network:
             for i in range(self.n_hidden_layers + 1):
               dW[i+1] += self.dW[i+1]/sz
               dB[i+1] += self.dB[i+1]/sz
-              #print(iters, i+1)
-              #print(dW)
+     
         
         if optimizer == 'sgd':
           for i in range(self.n_hidden_layers + 1):
@@ -220,8 +220,7 @@ class feedforward_neural_network:
           epsilon = 1e-8
           beta1 = 0.9
           beta2 = 0.999
-          print(dw)
-          print(dB)
+          
           for i in range(self.n_hidden_layers + 1):
             M_W_updates[i+1] = beta1 * M_W_updates[i + 1] + (1-beta1) * dW[i+1]
             M_B_updates[i+1] = beta1 * M_B_updates[i + 1] + (1-beta1) * dB[i+1]  
@@ -334,45 +333,44 @@ sweep_config = {
     },
     'parameters': {
         'activation': {
-            'distribution' : 'categorical',
+            
             'values': ['ReLU', 'tanh', 'sigmoid']
         },
         'lr': {
-            'distribution': 'categorical',
-            'values': [1e-2 ,75e-4 ,5e-3 ,25e-4 ,1e-3]
+            
+            'values': [1e-1,1e-2,1e-3]
         },
         'batch_size': {
-            'distribution' : 'categorical',
-            'values': [32,64,128,256,1024,2048]
+            
+            'values': [16,32,64,128]
         },
         'hidden_layer_size': {
-            'distribution' : 'categorical',
-            'values': [64,128]
+           
+            'values': [32,64,128]
         },
         'epochs': {
-            'min': 5,
-            'max': 15
+            'values':[5,10]
         },
         'num_hidden_layers': {
-            'distribution' : 'categorical',
-            'values': [2,3,4,5]
+           
+            'values': [3,4,5]
         },
         'optimizer': {
-            'distribution' : 'categorical',
+            
             'values': ['sgd','adam', 'nadam', 'rmsprop', 'momentum', 'nesterov']
         },
         'l2': {
-            'distribution' : 'categorical',
-            'values': [100e-5,75e-5,50e-5,5e-5,1e-4]
+            
+            'values': [0,0.005,0.0005]
         },
         'weight_init': {
-            'distribution' : 'categorical',
-            'values': ['xavier']
+  
+            'values': ['random','xavier']
         }
 
         }
     }
 
-sweep_id = wandb.sweep(sweep_config,project='trail 6')
+sweep_id = wandb.sweep(sweep_config,project='asgn1')
 
 wandb.agent(sweep_id, function=train)
