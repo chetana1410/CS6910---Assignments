@@ -118,14 +118,18 @@ class feedforward_neural_network:
     x[x>0] = 1
     return x
    
-  def back_propagation(self,x,y,W,B):
+  def back_propagation(self,x,y,W,B,loss_fn):
     self.forward_propagation(x, W, B)
     self.dW = {}
     self.dB = {}
     self.dH = {}
     self.dA = {}
     L = self.n_hidden_layers + 1
-    self.dA[L] = (self.softmax_y(self.A[L]) - y)
+    if loss_fn == 'square_error':
+      y_pred = self.softmax_y(self.A[L])
+      self.dA[L] = ((y_pred - y) - (y_pred - y) * y_pred) * y_pred
+    else:
+      self.dA[L] = (self.softmax_y(self.A[L]) - y)
     for k in range(L, 0, -1):
       self.dW[k] = self.H[k-1].T @ self.dA[k]
       self.dW[k] += (self.weight_decay * W[k])
@@ -141,7 +145,7 @@ class feedforward_neural_network:
         self.dA[k-1] = np.multiply(self.dH[k-1], self.grad_ReLU(self.H[k-1]))
                
            
-  def fit(self, X, Y, x_val,y_val, epochs, optimizer, batch_size, learning_rate ,metric, verbose, callback_fn):
+  def fit(self, X, Y, x_val,y_val, epochs, optimizer, batch_size, learning_rate, loss_fn, metric, verbose, callback_fn):
     M_W_updates = {}
     M_B_updates = {}
     V_W_updates = {}
@@ -172,13 +176,13 @@ class feedforward_neural_network:
         for x, y in zip(X_batch, Y_batch): 
             
           if optimizer == 'sgd' or optimizer == 'momentum' or optimizer == 'rmsprop' or optimizer == 'adam':
-            self.back_propagation(x, y,self.W,self.B)
+            self.back_propagation(x, y,self.W,self.B, loss_fn)
             for i in range(self.n_hidden_layers + 1):
               dW[i+1] += self.dW[i+1]/sz
               dB[i+1] += self.dB[i+1]/sz
 
           elif optimizer == 'nesterov' or optimizer == 'nadam':
-            self.back_propagation(x, y, W_look_ahead, B_look_ahead)
+            self.back_propagation(x, y, W_look_ahead, B_look_ahead, loss_fn)
             for i in range(self.n_hidden_layers + 1):
               dW[i+1] += self.dW[i+1]/sz
               dB[i+1] += self.dB[i+1]/sz
