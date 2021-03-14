@@ -13,17 +13,17 @@ from keras.datasets import fashion_mnist
 # load dataset
 (trainX, trainy), (testX, testy) = fashion_mnist.load_data()
  
-labels={0:'T-shirt/top',1:'Trouser',2:'Pullover', 3:'Dress' ,4:'Coat' ,5:'Sandal',6:'Shirt',7:  'Sneaker',8:'Bag',9 :'Ankle boot'}
+labels = {0 : 'T-shirt/top', 1 : 'Trouser', 2 : 'Pullover', 3 : 'Dress', 4 : 'Coat', 5 : 'Sandal', 6 : 'Shirt', 7 : 'Sneaker', 8 : 'Bag', 9 : 'Ankle boot'}
  
-ind=[]
+ind = []
 for i in range(10):
   ind.append(trainy.tolist().index(i))
  
 j=0
-fig,ax = plt.subplots(1,10,figsize=(20,20))
+fig, ax = plt.subplots(1, 10, figsize = (20,20))
 for i in ind:
   ax[j].imshow(trainX[i], cmap=pyplot.get_cmap('gray'))
-  ax[j].set_title(labels[j], y=-0.4)
+  ax[j].set_title(labels[j], y = -0.4)
   ax[j].axis('off')
   j+=1
 # show the figure
