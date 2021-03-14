@@ -326,46 +326,47 @@ def train():
 
 sweep_config = {
    #'program': train(),
-    'method': 'bayes',         
+    'method': 'random',         
     'metric': {
         'name': 'val_accuracy',     
         'goal': 'maximize'      
     },
     'parameters': {
         'activation': {
-            
-            'values': ['ReLU', 'tanh', 'sigmoid']
+            'distribution' : 'categorical',
+            'values': ['ReLU', 'tanh']
         },
         'lr': {
-            
-            'values': [1e-1,1e-2,1e-3]
+            'distribution': 'categorical',
+            'values': [1e-2, 1e-4 ,1e-3]
         },
         'batch_size': {
-            
-            'values': [16,32,64,128]
+            'distribution' : 'categorical',
+            'values': [32, 64, 128]
         },
         'hidden_layer_size': {
-           
-            'values': [32,64,128]
+            'distribution' : 'categorical',
+            'values': [32, 64, 128]
         },
         'epochs': {
-            'values':[5,10]
+            'distribution' : 'categorical',
+            'values': [5, 10, 15]
         },
         'num_hidden_layers': {
-           
-            'values': [3,4,5]
+            'distribution' : 'categorical',
+            'values': [3, 4, 5]
         },
         'optimizer': {
-            
-            'values': ['sgd','adam', 'nadam', 'rmsprop', 'momentum', 'nesterov']
+            'distribution' : 'categorical',
+            'values': ['adam', 'nadam', 'rmsprop']
         },
         'l2': {
-            
-            'values': [0,0.005,0.0005]
+            'distribution' : 'categorical',
+            'values': [0,0.005, 0.0005]
         },
         'weight_init': {
-  
-            'values': ['random','xavier']
+            'distribution' : 'categorical',
+            'values': ['xavier', 'random']
         }
 
         }
