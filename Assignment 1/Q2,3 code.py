@@ -125,11 +125,11 @@ class feedforward_neural_network:
     self.dH = {}
     self.dA = {}
     L = self.n_hidden_layers + 1
-    if loss_fn == 'square_error':
+    if loss_fn == 'cross_entropy':
+      self.dA[L] = (self.softmax_y(self.A[L]) - y)
+    else:
       y_pred = self.softmax_y(self.A[L])
       self.dA[L] = ((y_pred - y) - (y_pred - y) * y_pred) * y_pred
-    else:
-      self.dA[L] = (self.softmax_y(self.A[L]) - y)
     for k in range(L, 0, -1):
       self.dW[k] = self.H[k-1].T @ self.dA[k]
       self.dW[k] += (self.weight_decay * W[k])
@@ -323,10 +323,10 @@ def train():
   test_x = np.reshape(test_x, (-1, 784))/255.0
   train_y = to_categorical(train_y)
   train_x, val_x, train_y, val_y = train_test_split(train_x, train_y, test_size=0.1, random_state=0, shuffle=True)
-  model = feedforward_neural_network(28*28,10,[config.hidden_layer_size],[config.activation],config.l2,config.weight_init)
+  model = feedforward_neural_network(28*28,10,[config.hidden_layer_size]*config.num_hidden_layers,[config.activation]*config.num_hidden_layers,config.l2,config.weight_init)
 
   model.fit(train_x, train_y, val_x, val_y, epochs=config.epochs,optimizer=config.optimizer, verbose=10,
-            batch_size=config.batch_size,metric='cross_entropy',learning_rate=config.lr,callback_fn=callback)
+            batch_size=config.batch_size,metric='cross_entropy',learning_rate=config.lr,callback_fn=callback,loss_fn='cross_entropy)
 
 sweep_config = {
    #'program': train(),
