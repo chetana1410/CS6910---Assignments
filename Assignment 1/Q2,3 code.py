@@ -304,7 +304,7 @@ def train():
 
   def callback(epoch, train_eval_metrics, val_eval_metrics):
       wandb.log({"train_cross_entropy_loss": train_eval_metrics['cross_entropy'], "train_rmse": train_eval_metrics['rmse'],"train_accuracy": train_eval_metrics['accuracy'],
-                "val_cross_entropy_loss": train_eval_metrics['cross_entropy'], "val_rmse": train_eval_metrics['rmse'],"val_accuracy": train_eval_metrics['accuracy']})
+                "val_cross_entropy_loss": val_eval_metrics['cross_entropy'], "val_rmse": val_eval_metrics['rmse'],"val_accuracy": val_eval_metrics['accuracy']})
 
         # Pass your defaults to wandb.init
   wandb.init(config = default_hyperparams)
