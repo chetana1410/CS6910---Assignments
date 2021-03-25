@@ -114,6 +114,12 @@ def train():
     validation_steps = val_it.samples // 32,
     epochs = config.epochs,
     callbacks=[WandbCallback()])
+    
+    
+    train_loss, train_accuracy = model.evaluate_generator(train_it, callbacks=[WandbCallback()])
+    val_loss, val_accuracy = model.evaluate_generator(val_it, callbacks=[WandbCallback()])
+    #print('Val accuracy: ', accuracy*100)
+    wandb.log({'val_loss':val_loss,'val_accuracy':val_accuracy,'train_oss': train_loss,'train_accuracy':train_accuracy }) # wandb.log to track custom metrics
 
 sweep_config = {
    #'program': train(),
