@@ -10,6 +10,8 @@ Original file is located at
 from google.colab import drive
 drive.mount("/content/gdrive")
 
+! pip install wandb
+
 import keras
 from keras.models import Sequential
 from keras.layers import Dense, Conv2D, Flatten,BatchNormalization,Dropout,Activation ,MaxPooling2D
@@ -18,149 +20,186 @@ from keras.losses import CategoricalCrossentropy
 import PIL
 import wandb
 from wandb.keras import WandbCallback
+from keras.callbacks import EarlyStopping
+from keras import optimizers
 
 wandb.login()
 
-def cnn(n,num_filters,ker_size,activ,pool,num_nodes,filter_org,bn=0,dp='no'):
-    
+def cnn(n,num_filters,ker_size_input,ker_size,activ,pool,num_nodes,filter_org,bn_vs_dp,bn=0,dp='no'):
+  
 
+  model = Sequential()
+  model.add(Conv2D(num_filters, (ker_size_input, ker_size_input), input_shape=(224,224,3)))
+  model.add(Activation(activ))
+  model.add(MaxPooling2D(pool_size=(pool, pool)))
 
-    model = Sequential()
-    model.add(Conv2D(num_filters, (ker_size, ker_size), input_shape=(255,255,3)))
+  for i in range(1,n):
+  
+    if filter_org=='same':
+      num_filters= num_filters
+    elif filter_org=='double':
+      num_filters*=2
+    else:
+      num_filters//=2
+      
+        
+    model.add(Conv2D(num_filters, (ker_size, ker_size)))
+
+    if bn:
+        model.add(BatchNormalization())
+        
     model.add(Activation(activ))
     model.add(MaxPooling2D(pool_size=(pool, pool)))
-    for i in range(1,n):
-        if filter_org == 'double':
-            num_filters *=2
-        elif filter_org == 'half':
-            num_filters *=1//2
-            
-        model.add(Conv2D(num_filters, (ker_size, ker_size)))
-        if bn:
-            model.add(BatchNormalization())
-            
-        model.add(Activation(activ))
-        model.add(MaxPooling2D(pool_size=(pool, pool)))
-        
-    model.add(Flatten())
-    model.add(Dense(num_nodes))
-    model.add(Activation(activ))
-    if dp != 'no':
-        model.add(Dropout(dp))
-        
-    model.add(Dense(10, activation='softmax'))
+      
+  model.add(Flatten())
+  model.add(Dense(num_nodes))
+  
+  if bn_vs_dp == 'dp':
+    model.add(Dropout(dp))
+  else:
+    model.add(BatchNormalization())
 
-    return model
+  model.add(Activation(activ))
+      
+  model.add(Dense(10, activation='softmax'))
+
+  return model
 
 def train():
-    default_hyperparams = dict(
-      bn=0,
-      num_filters=64,
-      fliter_org='same',
-      dropout=0,
-      data_aug=0,
-      learning_rate=0.01,
-      epochs=5,
-      activ="ReLU",
-    )
+  default_hyperparams = dict(
+    bn=0,
+    num_filters=64,
+    fliter_org='same',
+    dropout=0,
+    data_aug=0,
+    learning_rate=0.01,
+    epochs=5,
+    activ="ReLU",
+    optimizer = 'Adam',
+    batch_size=32,
+    ker_size_input=5,
+    bn_vs_dp='bn'
+  )
 
     
     
-    wandb.init(config = default_hyperparams)
-    config = wandb.config
+  wandb.init(config = default_hyperparams)
+  config = wandb.config
 
-    train_data_dir= '/content/gdrive/MyDrive/inaturalist_12K/train'
+  train_data_dir= '/content/gdrive/MyDrive/inaturalist_12K/train'
 
-    if config.data_aug:
-        
-        train_datagen = ImageDataGenerator(
-        rescale=1./255,
-        validation_split=0.1) # set validation split
-        
-          #  agument_params={ #shear_range=0.2,
-        #zoom_range=0.2,
-        #horizontal_flip=True,}
-    else:
-        
-        train_datagen = ImageDataGenerator(
-        rescale=1./255,
-        validation_split=0.1) # set validation split
-    
+  batch_size=config.batch_size
+
+  if config.data_aug:
+      
+    train_datagen = ImageDataGenerator(
+    rescale=1./255,
+    rotation_range=45, 
+    width_shift_range=.15, 
+    height_shift_range=.15, 
+    horizontal_flip=True, 
+    zoom_range=0.5,
+    validation_split=0.1) 
+
+  else:
+      
+    train_datagen = ImageDataGenerator(
+    rescale=1./255,
+    validation_split=0.1) # set validation split
+  
     
 
-    train_it = train_datagen.flow_from_directory(
-        train_data_dir,
-        #target_size=(img_height, img_width),
-        batch_size=32,
-        class_mode='categorical',
-        subset='training') # set as training data
+  train_it = train_datagen.flow_from_directory(
+      train_data_dir,
+      target_size=(224,224),
+      batch_size=batch_size,
+      class_mode='categorical',
+      subset='training') # set as training data
 
-    val_it = train_datagen.flow_from_directory(
-        train_data_dir, # same directory as training data
-        #target_size=(img_height, img_width),
-        batch_size=32,
-        class_mode='categorical',
-        subset='validation') # set as validation data
-    
-    # Your model here ...
-    model = cnn(5,config.num_filters,7,config.activ,2,1024,config.filter_org,config.bn,config.dropout)
-    
-    model.compile(optimizer="Adam", loss=CategoricalCrossentropy(), metrics='acc')
-    
-    model.fit_generator(
-    train_it,
-    steps_per_epoch = train_it.samples // 32,
-    validation_data = val_it, 
-    validation_steps = val_it.samples // 32,
-    epochs = config.epochs,
-    callbacks=[WandbCallback()])
-    
-    
-    train_loss, train_accuracy = model.evaluate_generator(train_it, callbacks=[WandbCallback()])
-    val_loss, val_accuracy = model.evaluate_generator(val_it, callbacks=[WandbCallback()])
-    #print('Val accuracy: ', accuracy*100)
-    wandb.log({'val_loss':val_loss,'val_accuracy':val_accuracy,'train_oss': train_loss,'train_accuracy':train_accuracy }) # wandb.log to track custom metrics
+  val_it = train_datagen.flow_from_directory(
+      train_data_dir, # same directory as training data
+      target_size=(224,224),
+      batch_size=batch_size,
+      class_mode='categorical',
+      subset='validation') # set as validation data
+  
+  # Your model here ...
+  model = cnn(5,config.num_filters,config.ker_size_input,3,config.activ,2,1024,config.filter_org,config.bn_vs_dp,config.bn,config.dropout)
+
+  if config.optimizer == 'Adam':
+    model.compile(optimizers.Adam(lr=config.learning_rate, decay=1e-6), loss=CategoricalCrossentropy(), metrics='acc')
+  elif config.optimizer == 'rmsprop':
+    model.compile(optimizers.RMSprop(lr=config.learning_rate, decay=1e-6), loss=CategoricalCrossentropy(), metrics='acc')
+  else:
+     model.compile(optimizers.SGD(lr=config.learning_rate, decay=1e-6), loss=CategoricalCrossentropy(), metrics='acc')
+  
+  model.fit(
+  train_it,
+  steps_per_epoch = train_it.samples //batch_size,
+  validation_data = val_it, 
+  validation_steps = val_it.samples // batch_size,
+  epochs = config.epochs,
+  callbacks=[WandbCallback(data_type='image',validation_data = val_it,verbose=1),EarlyStopping(patience=10,restore_best_weights=True)])
+  #train_loss,train_accuracy = model.evaluate(train_it, callbacks=[WandbCallback()])
+  #val_loss, val_accuracy = model.evaluate(val_it, callbacks=[WandbCallback()])
+  #wandb.log({'val_loss':val_loss,'val_accuracy':val_accuracy*100,'train_loss': train_loss,'train_accuracy':train_accuracy*100 }) # wandb.log to track custom metrics
 
 sweep_config = {
    #'program': train(),
-    'method': 'random',         
+    'method': 'bayes',         
     'metric': {
         'name': 'val_accuracy',     
         'goal': 'maximize'      
     },
     'parameters': {
         'learning_rate': {
-            'values': [1e-3]
+            'values': [1e-3,1e-4]
         },
         'activ': {
             'values': ['relu']
         },
         'bn': {
-            'values': [1, 0]
+            'values': [0,1]
         },
         'num_filters': {
-            'values': [32, 64, 128, 256]
+            'values': [32,64]
         },
         'filter_org': {
-            'values': ['same', 'double']
+            'values': ['double']
         },
         'epochs': {
-            'values': [5]
+            'values':[5]
+
         },
         'dropout': {
-            'values': [0, 0.2, 0.3]
+            'values': [0,0.2,0.3]
         },
         'data_aug': {
-            'values': [0]
+            'values': [0,1]
         },
+        'optimizer' : {
+            'values': ['Adam','rmsprop','sgd']
+        },
+
+        'batch_size': {
+            'values': [32]
+        },
+        'ker_size_input':{
+            'values':[5,7]
+        },
+        'bn_vs_dp':{
+            'values':['bn,dp']
+        }
 
         }
     }
 
 
-sweep_id = wandb.sweep(sweep_config,project='asgn2')
+sweep_id = wandb.sweep(sweep_config,project='asgn2 q1 1')
 
 wandb.agent(sweep_id, function=train)
+
+
 
 
 
