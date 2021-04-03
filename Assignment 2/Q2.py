@@ -36,17 +36,6 @@ from keras.optimizers import SGD, Adam, RMSprop
 
 wandb.login()
 
-IMAGE_SIZE = [224, 224]
-inception = VGG16(input_shape = IMAGE_SIZE + [3], weights='imagenet', include_top=False)
-c = 0
-for layer in inception.layers:
-  c += 1
-  layer.trainable = False
-
-print(c)
-
-
-
 def train():
   default_hyperparams = dict(
       tr_model = 'VGG16',
