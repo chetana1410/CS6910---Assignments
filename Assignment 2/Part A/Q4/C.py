@@ -2,6 +2,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import keras
 import numpy as np
+from keras.models import model_from_json
 %matplotlib inline
 
 img_PIL = Image.open(r'/content/gdrive/MyDrive/inaturalist_12K/val/Aves/049650eac0f12d7a16c785a0f1e06e0f.jpg')
@@ -11,7 +12,11 @@ img = img_PIL.resize((224, 224))
 img= keras.preprocessing.image.img_to_array(img)
 #img.shape
 
-model = keras.models.load_model('Best model Part A.h5')
+json_file = open('model.json', 'r')
+loaded_model_json = json_file.read()
+json_file.close()
+model = model_from_json(loaded_model_json)
+#model = keras.models.load_model('Best model Part A.h5')
 
 filters, biases = model.layers[0].get_weights()
 
