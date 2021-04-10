@@ -1,4 +1,4 @@
-# CS6910---Assignments
+# CS6910 Assignment 2
 This repository contains the following files -
 * `Part A` - This folder contains the following: 
   * `Q1.py` - This contains the code for CNN model consisting of 5 convolution layers. It further has the code to use the sweep feature in wandb to find the best hyperparameter configuration.
