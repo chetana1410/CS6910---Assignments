@@ -26,12 +26,6 @@ import PIL
 from keras.callbacks import EarlyStopping
 from keras import optimizers
 
-from keras.applications.vgg16 import VGG16
-from keras.applications.vgg16 import preprocess_input
-from keras.applications.resnet50 import ResNet50
-from keras.applications.inception_v3 import InceptionV3
-from keras.applications.xception import Xception
-from keras.applications.inception_resnet_v2 import InceptionResNetV2
 from keras.optimizers import SGD, Adam, RMSprop
 
 
