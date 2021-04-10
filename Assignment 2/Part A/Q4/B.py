@@ -244,7 +244,7 @@ get_ipython().run_line_magic('matplotlib', 'inline')
 # In[38]:
 
 
-def show_grid(image_list, nrows, ncols, label_list=None, pred_label = None, show_labels=False, savename=None, figsize=(10,10), showaxis='off'):
+def show_grid(image_list, nrows, ncols, label_list=None, pred_label = None, show_labels=False, savename=None, figsize=(15,10), showaxis='off'):
   if type(image_list) is not list:
       if(image_list.shape[-1]==1):
           image_list = [image_list[i,:,:,0] for i in range(image_list.shape[0])]
@@ -253,7 +253,7 @@ def show_grid(image_list, nrows, ncols, label_list=None, pred_label = None, show
   fig = plt.figure(None, figsize,frameon=False)
   grid = ImageGrid(fig, 111,  # similar to subplot(111)
                     nrows_ncols=(nrows, ncols),  # creates 2x2 grid of axes
-                    axes_pad = 0.3,  # pad between axes in inch.
+                    axes_pad = 0.4,  # pad between axes in inch.
                     share_all = True,
                     )
   for i in range(nrows * ncols):
@@ -261,7 +261,7 @@ def show_grid(image_list, nrows, ncols, label_list=None, pred_label = None, show
       ax.imshow(image_list[i], cmap='Greys_r')  # The AxesGrid object work as a list of axes.
       ax.axis('off')
       if show_labels:
-          ax.set_title('true class: ' + str(class_name[np.argmax(Y_batch[i])]) + ', predicted class: ' + str(class_name[np.argmax(Y_pred[i])]), fontsize = 5)
+          ax.set_title('True : ' + str(class_name[np.argmax(Y_batch[i])]) + ', Predicted : ' + str(class_name[np.argmax(Y_pred[i])]), fontsize = 8,fontweight='bold',pad=8)
   if savename != None:
       plt.savefig(savename,bbox_inches='tight')
 
