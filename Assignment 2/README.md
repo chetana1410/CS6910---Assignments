@@ -6,3 +6,7 @@ This repository contains the following files -
     *  plotting a 10 x 3 grid containing sample images from the test data and predictions made by our best model
     *  Visualising all the filters in the first layer of our best model for a random image from the test set.
     *  implementing guided back propagation on any 10 neurons in the CONV5 layer and plotting the images which excite this neuron.
+
+* `Part B` - This folder contains the following:
+  * `Q1,2.py` - This contains the code for loading pre- trained models (VGG16, ResNet50, InceptionV3, Xception and InceptionResNetV2) and fine-tuning it using the naturalist data.
+  It further has the code to use the sweep feature in wandb to find the best hyperparameter configuration for each model mentioned above. 
