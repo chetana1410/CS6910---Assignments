@@ -2,9 +2,6 @@ from google.colab import drive
 drive.mount("/content/gdrive")
 
 
-# In[2]:
-
-
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -15,18 +12,11 @@ from keras.layers import Dense, Conv2D, Flatten, BatchNormalization, Dropout, Ac
 from keras.preprocessing.image import ImageDataGenerator
 from keras.losses import CategoricalCrossentropy
 import PIL
-#import wandb
-#from wandb.keras import WandbCallback
+from PIL import Image
 from keras.callbacks import EarlyStopping
 from keras import optimizers
-
 from keras.optimizers import SGD, Adam, RMSprop
 
-
-# In[3]:
-
-
-from PIL import Image
 import os
 from skimage import io
 from matplotlib import cm
@@ -34,9 +24,13 @@ from mpl_toolkits.axes_grid1 import ImageGrid
 import math
 get_ipython().run_line_magic('matplotlib', 'inline')
 
+from tensorflow.keras.preprocessing import image
+import tensorflow as tf
+from tensorflow.keras.applications.resnet import  preprocess_input, decode_predictions
+import tensorflow.keras.backend as K
+from tensorflow.keras.models import Model
 
-# In[4]:
-
+#Q4 a
 
 def cnn(n,num_filters,ker_size_input,ker_size,activ,pool,num_nodes,filter_org,max_vs_avg,bn=0,dp='no'):  
 
@@ -87,11 +81,6 @@ def cnn(n,num_filters,ker_size_input,ker_size,activ,pool,num_nodes,filter_org,ma
   return model
 
 
-# In[5]:
-
-
-# active - relu, batch size = 64, bn = 0, data_aug = 0, dropout = 0.2, epoch = 10, double, ker_size = 7, lr = 1e-4, avg, num_filt = 64, Adam
-#cnn(n,num_filters,ker_size_input,ker_size,activ,pool,num_nodes,filter_org,max_vs_avg,bn=0,dp='no')
 num_filters = 64
 ker_size_input = 7
 filter_org = 'double'
@@ -102,8 +91,6 @@ dp = 0.2
 batch_size = 64
 iters = 10
 
-
-# In[6]:
 
 
 if data_aug:
@@ -122,12 +109,7 @@ else:
     validation_split=0.1) 
 
 
-# In[7]:
-
-
 train_data_dir= '/content/gdrive/MyDrive/inaturalist_12K/train'
-
-# active - relu, batch size = 64, bn = 1, data_aug = 0, dropout = 0.3, epoch = 5, double, ker_size = 3, lr = 1e-4, avg, num_filt = 32, Adam
 
 train_it = train_datagen.flow_from_directory(
       train_data_dir,
@@ -144,8 +126,6 @@ val_it = train_datagen.flow_from_directory(
     subset='validation') # set as validation data
 
 
-# In[8]:
-
 
 model = cnn(5, num_filters, ker_size_input, 3, 'relu', 2, 1024, filter_org, max_vs_avg, bn, dp)
 model.compile(optimizers.Adam(lr= 1e-4, decay=1e-6), loss=CategoricalCrossentropy(), metrics='acc')
@@ -158,19 +138,11 @@ model.fit(
 )
 
 
-# In[9]:
-
 
 train_loss, train_accuracy = model.evaluate(train_it)
 val_loss, val_accuracy = model.evaluate(val_it)
 print('train_loss = ', train_loss, 'train_accuracy = ', train_accuracy)
 print('val_loss = ', val_loss, 'val_accuracy = ', val_accuracy)
-
-
-# In[41]:
-
-
-# In[10]:
 
 
 test_datagen = ImageDataGenerator(rescale=1./255.)
@@ -184,14 +156,11 @@ test_it = test_datagen.flow_from_directory(
 )
 
 
-# In[11]:
-
-
 test_loss, test_accuracy = model.evaluate(test_it)
 print('test_loss = ', test_loss, ', test_accuracy = ', test_accuracy)
 
 
-# In[13]:
+#Q4 b
 
 
 visited_class = [0 for i in range(10)]
@@ -209,33 +178,13 @@ while True:
     break
 
 
-# In[14]:
-
-
 class_name = {0 : 'Amphibia', 1 : 'Animilia', 2 : 'Arachnida', 3 : 'Aves', 4 : 'Fungi', 5 : 'Insecta', 6 : 'Mammalia', 7 : 'Mollusca', 8 : 'Plantae', 9 : 'Reptilia'}
-
-
-# In[15]:
 
 
 Y_pred = []
 for i in X_batch:
   Y_pred.append(model.predict(i))
 
-
-# In[19]:
-
-
-from PIL import Image
-import os
-from skimage import io
-from matplotlib import cm
-from mpl_toolkits.axes_grid1 import ImageGrid
-import math
-get_ipython().run_line_magic('matplotlib', 'inline')
-
-
-# In[38]:
 
 
 def show_grid(image_list, nrows, ncols, label_list=None, pred_label = None, show_labels=False, savename=None, figsize=(15,10), showaxis='off'):
@@ -259,15 +208,124 @@ def show_grid(image_list, nrows, ncols, label_list=None, pred_label = None, show
   if savename != None:
       plt.savefig(savename,bbox_inches='tight')
 
-
-# In[21]:
-
-
 XXbatch = np.array(X_batch).reshape((len(X_batch), 224, 224, 3))
 XXbatch.shape
 
 
-# In[40]:
+show_grid(XXbatch, 10, 3, label_list= Y_batch, pred_label = Y_pred, show_labels=True, figsize=(35,35))
 
 
-show_grid(XXbatch, 10, 3, label_list= Y_batch, pred_label = Y_pred, show_labels=True, figsize=(40,20))
+
+# Q4c
+
+img_PIL = Image.open(r'/content/gdrive/MyDrive/inaturalist_12K/val/Aves/049650eac0f12d7a16c785a0f1e06e0f.jpg')
+img = img_PIL.resize((224, 224))
+img= keras.preprocessing.image.img_to_array(img)
+
+filters, biases = model.layers[0].get_weights()
+
+def forward_pass(img,f,b) :
+    
+    h_f, w_f, d_f = f.shape
+    h_out, w_out = img.shape[0]-f.shape[0]+1,img.shape[1]-f.shape[1]+1
+    
+    
+    output = np.zeros((218,218))
+    
+    for i in range(h_out):
+        for j in range(w_out):
+            h_start, w_start = i, j
+            h_end, w_end = h_start + h_f, w_start + w_f
+            output[i, j] = np.sum(img[h_start:h_end, w_start:w_end,:] *f )
+
+    return output + b
+
+
+
+plt.rcParams["figure.figsize"] = (30,30)
+for i in range(64):
+  f = filters[:, :, :, i]
+  b=biases[i]
+  plt.subplot(8,8, i+1)
+  plt.xticks([])
+  plt.yticks([])
+  plt.title(f'Filter : {i+1}',fontsize=15,fontweight='bold')
+  plt.imshow(forward_pass(img,f,b))
+
+  
+H, W = 224, 224
+
+def load_image(path, preprocess=True):
+    """Load and preprocess image."""
+    x = image.load_img(path, target_size=(H, W))
+    if preprocess:
+        x = image.img_to_array(x)
+        x = np.expand_dims(x, axis=0)
+        x = preprocess_input(x)
+    return x
+  
+  
+ # Q5   Guided Backpropagation
+
+def deprocess_image(x):
+    
+    # normalize tensor: center on 0., ensure std is 0.25
+    x = x.copy()
+    x -= x.mean()
+    x /= (x.std() + K.epsilon())
+    x *= 0.25
+
+    # clip to [0, 1]
+    x += 0.5
+    x = np.clip(x, 0, 1)
+
+    # convert to RGB array
+    x *= 255
+    if K.image_data_format() == 'channels_first':
+        x = x.transpose((1, 2, 0))
+    x = np.clip(x, 0, 255).astype('uint8')
+    return x
+  
+# Original image
+plt.imshow(load_image('/content/gdrive/MyDrive/inaturalist_12K/val/Aves/049650eac0f12d7a16c785a0f1e06e0f.jpg', preprocess=False))
+plt.axis("off")
+
+# process example input
+preprocessed_input = load_image('/content/gdrive/MyDrive/inaturalist_12K/val/Aves/049650eac0f12d7a16c785a0f1e06e0f.jpg')
+
+@tf.custom_gradient
+def guidedRelu(x):
+  def grad(dy):
+    return tf.cast(dy>0,"float32") * tf.cast(x>0, "float32") * dy
+  return tf.nn.relu(x), grad
+
+
+gb_model = Model(
+    inputs = [model.inputs],
+    outputs = [model.get_layer("conv2d_4").output]
+)
+output_shape = model.get_layer("conv2d_4").output.shape[1:]
+layer_dict = [layer for layer in gb_model.layers[1:] if hasattr(layer,'activation')]
+for layer in layer_dict:
+  if layer.activation == tf.keras.activations.relu:
+    layer.activation = guidedRelu
+  
+  
+fig , ax = plt.subplots(10,1,figsize=(30,30))
+for i in range(10):
+  random_neuron_idx=[0]+[np.random.randint(0,d_max-1) for d_max in output_shape]
+
+  mask = np.zeros((1,*output_shape))
+  mask[random_neuron_idx[0],random_neuron_idx[1],random_neuron_idx[2],random_neuron_idx[3]]=1
+  with tf.GradientTape() as tape:
+    inputs = tf.cast(preprocessed_input, tf.float32)
+    tape.watch(inputs)
+    outputs = gb_model(inputs)*mask
+
+  grads = tape.gradient(outputs,inputs)[0]
+  ax[i].imshow(np.flip(deprocess_image(np.array(grads)),-1))
+  ax[i].set_xticks([])
+  ax[i].set_yticks([])
+  ax[i].set_title(f'Neuron_index :{random_neuron_idx}',fontsize=10,fontweight='bold', pad=10)
+
+
