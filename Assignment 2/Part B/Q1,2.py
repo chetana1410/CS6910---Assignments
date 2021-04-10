@@ -213,7 +213,7 @@ sweep_config = {
             'values': [0, 1e-3, 5*1e-4, 1e-4]   # 0 implies default learning rate set by model
         },
         'freeze': {
-            'values': [-1, 5, 10]
+            'values': [-1, 1]
         },
         'epochs': {
             'min': 5,
