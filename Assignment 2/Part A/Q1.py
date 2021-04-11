@@ -78,7 +78,8 @@ def train():
     optimizer = 'Adam',
     batch_size=32,
     ker_size_input=5,
-    bn_vs_dp='bn'
+    bn_vs_dp='bn',
+    max_vs_avg='max'
   )
 
     
@@ -140,10 +141,7 @@ def train():
   validation_steps = val_it.samples // batch_size,
   epochs = config.epochs,
   callbacks=[WandbCallback(data_type='image',validation_data = val_it,verbose=1),EarlyStopping(patience=10,restore_best_weights=True)])
-  #train_loss,train_accuracy = model.evaluate(train_it, callbacks=[WandbCallback()])
-  #val_loss, val_accuracy = model.evaluate(val_it, callbacks=[WandbCallback()])
-  #wandb.log({'val_loss':val_loss,'val_accuracy':val_accuracy*100,'train_loss': train_loss,'train_accuracy':train_accuracy*100 }) # wandb.log to track custom metrics
-
+  
 sweep_config = {
    #'program': train(),
     'method': 'bayes',         
@@ -189,7 +187,7 @@ sweep_config = {
         },
         'bn_vs_dp':{
             'values':['bn', 'dp']
-        }
+        },
         'max_vs_avg': {
             'values':['max', 'avg']
         }
