@@ -26,11 +26,8 @@ train = pd.read_csv("/content/drive/MyDrive/RNN folder/dakshina_dataset_v1.0/hi/
 val = pd.read_csv('/content/drive/MyDrive/RNN folder/dakshina_dataset_v1.0/hi/lexicons/hi.translit.sampled.dev.tsv',delimiter="\t",header=None,names = ['hindi', 'word', 'number'])
 test = pd.read_csv('/content/drive/MyDrive/RNN folder/dakshina_dataset_v1.0/hi/lexicons/hi.translit.sampled.test.tsv',delimiter="\t",header=None,names = ['hindi', 'word', 'number'])
 
-train.head()
-val.head()
-test.head()
-
 train.dropna(inplace = True)
+df = pd.concat([train, val, test])
 
 def get_unique_char(dataset):
   my_set = set()
@@ -39,15 +36,13 @@ def get_unique_char(dataset):
       my_set.add(char)
   return my_set
 
-def get_req_vec(tr_word, tr_hindi, val_word, val_hindi):
+def get_req_vec(tr_word, tr_hindi):
   tr_input_char = get_unique_char(tr_word)
   tr_target_char = get_unique_char(tr_hindi)
-  val_input_char = get_unique_char(val_word)
-  val_target_char = get_unique_char(val_hindi)
-  num_encoder_tokens = len(tr_input_char.union(val_input_char))
-  num_decoder_tokens = len(tr_target_char.union(val_target_char))
-  max_encoder_seq_length = max([len(txt) for txt in tr_word] + [len(txt) for txt in val_word])
-  max_decoder_seq_length = max([len(txt) for txt in tr_hindi] + [len(txt) for txt in val_hindi])
+  num_encoder_tokens = len(tr_input_char)
+  num_decoder_tokens = len(tr_target_char)
+  max_encoder_seq_length = max([len(txt) for txt in tr_word])
+  max_decoder_seq_length = max([len(txt) for txt in tr_hindi])
   return [num_encoder_tokens, num_decoder_tokens, max_encoder_seq_length, max_decoder_seq_length]
 
 def generate_dataset(input_texts, target_texts, params):
@@ -86,9 +81,16 @@ def generate_dataset(input_texts, target_texts, params):
 
   return [encoder_input_data, decoder_input_data], decoder_target_data
 
-params = get_req_vec(list(train.word), list(train.hindi), list(val.word), list(val.hindi))
-train_X, train_Y = generate_dataset(list(train.word), list(train.hindi), params)
-val_X, val_Y = generate_dataset(list(val.word), list(val.hindi), params)
+params = get_req_vec(list(df.word), list(df.hindi))
+data_X, data_Y = generate_dataset(list(df.word), list(df.hindi), params)
+
+train_X = [data_X[0][:train.shape[0]], data_X[1][:train.shape[0]]]
+train_Y = data_Y[:train.shape[0]]
+val_X = [data_X[0][train.shape[0]: train.shape[0] + val.shape[0]], data_X[1][train.shape[0]: train.shape[0] + val.shape[0]]]
+val_Y = data_Y[train.shape[0]: train.shape[0] + val.shape[0]]
+
+test_X = [data_X[0][train.shape[0] + val.shape[0]:], data_X[1][train.shape[0] + val.shape[0]:]]
+test_Y = data_Y[train.shape[0] + val.shape[0]:]
 
 latent_dim = 256
 batch_size = 64
