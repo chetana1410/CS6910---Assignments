@@ -28,6 +28,8 @@ test = pd.read_csv('/content/drive/MyDrive/RNN folder/dakshina_dataset_v1.0/hi/l
 
 train.dropna(inplace = True)
 df = pd.concat([train, val, test])
+df['word'] = df['word'].apply(lambda x: x + "\n")
+df['hindi'] = df['hindi'].apply(lambda x: "\t" + x + "\n")
 
 def get_unique_char(dataset):
   my_set = set()
@@ -69,15 +71,14 @@ def generate_dataset(input_texts, target_texts, params):
 
   for i, (input_text, target_text) in enumerate(zip(input_texts, target_texts)):
     for t, char in enumerate(input_text):
-      encoder_input_data[i, t, input_token_index[char]] = 1.0
-      
+        encoder_input_data[i, t, input_token_index[char]] = 1.0
+    encoder_input_data[i, t + 1 :, input_token_index["\n"]] = 1.0
     for t, char in enumerate(target_text):
-      # decoder_target_data is ahead of decoder_input_data by one timestep
-      decoder_input_data[i, t, target_token_index[char]] = 1.0
-      if t > 0:
-          # decoder_target_data will be ahead by one timestep
-          # and will not include the start character.
-          decoder_target_data[i, t - 1, target_token_index[char]] = 1.0
+        decoder_input_data[i, t, target_token_index[char]] = 1.0
+        if t > 0:
+            decoder_target_data[i, t - 1, target_token_index[char]] = 1.0
+    decoder_input_data[i, t + 1 :, target_token_index["\n"]] = 1.0
+    decoder_target_data[i, t:, target_token_index["\n"]] = 1.0
 
   return [encoder_input_data, decoder_input_data], decoder_target_data
 
@@ -101,28 +102,70 @@ num_decoder_tokens = params[1]
 max_encoder_seq_length = params[2] 
 max_decoder_seq_length = params[3]
 
-# Define an input sequence and process it.
-encoder_inputs = keras.Input(shape=(None, num_encoder_tokens))
-encoder = keras.layers.LSTM(latent_dim, return_state=True)
-encoder_outputs, state_h, state_c = encoder(encoder_inputs)
+def generate_latent_dim(hidden_layer_size, num_encode_layers):
+  if num_encode_layers == 1: return [hidden_layer_size]
+  elif num_encode_layers == 2:
+    if hidden_layer_size == 16:
+      return [16, 32]
+    else:
+      return [hidden_layer_size, hidden_layer_size // 2]
+  else:
+    if hidden_layer_size < 64:
+      return [hidden_layer_size, hidden_layer_size * 2, hidden_layer_size * 4]
+    else:
+      return [hidden_layer_size, hidden_layer_size // 2, hidden_layer_size // 4]
 
-# We discard `encoder_outputs` and only keep the states.
-encoder_states = [state_h, state_c]
+def build_seq2seq_model(num_encode_layers, num_decode_layers, hidden_layer_size, dropout, beam_size, cell_type = 'LSTM'):
+  model = keras.Sequential()
+  latent_dims = generate_latent_dim(hidden_layer_size, num_encode_layers)
 
-# Set up the decoder, using `encoder_states` as initial state.
-decoder_inputs = keras.Input(shape=(None, num_decoder_tokens))
+  encoder_inputs = Input(shape=(None, num_encoder_tokens))
 
-# We set up our decoder to return full output sequences,
-# and to return internal states as well. We don't use the
-# return states in the training model, but we will use them in inference.
-decoder_lstm = keras.layers.LSTM(latent_dim, return_sequences = True, return_state=True)
-decoder_outputs, _ , _ = decoder_lstm(decoder_inputs, initial_state = encoder_states)
-decoder_dense = keras.layers.Dense(num_decoder_tokens, activation="softmax")
-decoder_outputs = decoder_dense(decoder_outputs)
+  outputs = encoder_inputs
+  encoder_states = []
+  for j in range(len(latent_dims))[::-1]:
+    if cell_type == 'LSTM':
+      outputs, h, c = LSTM(latent_dims[j], return_state = True, return_sequences = True)(outputs)
+      encoder_states += [h, c]
+    
+    elif cell_type == 'GRU':
+      outputs, h = GRU(latent_dims[j], return_state = True, return_sequences = True)(outputs)
+      encoder_states += [h]
+    elif cell_type == 'RNN':
+      outputs, h = SimpleRNN(latent_dims[j], return_state = True, return_sequences = True)(outputs)
+      encoder_states += [h]
 
-# Define the model that will turn
-# `encoder_input_data` & `decoder_input_data` into `decoder_target_data`
-model = keras.Model([encoder_inputs, decoder_inputs], decoder_outputs)
+  decoder_inputs = Input(shape=(None, num_decoder_tokens))
+
+  outputs = decoder_inputs
+  output_layers = []
+  for j in range(len(latent_dims)):
+    if cell_type == 'LSTM':
+      output_layers.append(
+          LSTM(latent_dims[len(latent_dims) - j - 1], return_sequences=True, return_state=True)
+      )
+      outputs, dh, dc = output_layers[-1](outputs, initial_state=encoder_states[2*j : 2*(j + 1)])
+
+    elif cell_type == 'GRU':
+      output_layers.append(
+          GRU(latent_dims[len(latent_dims) - j - 1], return_sequences=True, return_state=True)
+      )
+      outputs, dh = output_layers[-1](outputs, initial_state=encoder_states[j])
+
+    elif cell_type == 'RNN':
+      output_layers.append(
+          SimpleRNN(latent_dims[len(latent_dims) - j - 1], return_sequences=True, return_state=True)
+      )
+      outputs, dh = output_layers[-1](outputs, initial_state=encoder_states[j])
+
+  decoder_dense = Dense(num_decoder_tokens, activation = 'softmax')
+  decoder_outputs = decoder_dense(outputs)
+  model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
+
+  return model
+
+model = build_seq2seq_model(1, 3, 1024, 0, 0, 'GRU')
+model.summary()
 
 model.compile(
     optimizer="rmsprop", loss="categorical_crossentropy", metrics=["accuracy"]
