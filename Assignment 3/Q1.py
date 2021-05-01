@@ -128,14 +128,14 @@ def build_seq2seq_model(num_encode_layers, num_decode_layers, hidden_layer_size,
   encoder_states = []
   for j in range(len(latent_dims))[::-1]:
     if cell_type == 'LSTM':
-      outputs, h, c = LSTM(latent_dims[j], return_state = True, return_sequences = True)(outputs)
+      outputs, h, c = LSTM(latent_dims[j], return_state = True, return_sequences = True, dropout = dropout)(outputs)
       encoder_states += [h, c]
     
     elif cell_type == 'GRU':
-      outputs, h = GRU(latent_dims[j], return_state = True, return_sequences = True)(outputs)
+      outputs, h = GRU(latent_dims[j], return_state = True, return_sequences = True, dropout = dropout)(outputs)
       encoder_states += [h]
     elif cell_type == 'RNN':
-      outputs, h = SimpleRNN(latent_dims[j], return_state = True, return_sequences = True)(outputs)
+      outputs, h = SimpleRNN(latent_dims[j], return_state = True, return_sequences = True, dropout = dropout)(outputs)
       encoder_states += [h]
 
   decoder_inputs = Input(shape=(None, num_decoder_tokens))
@@ -145,19 +145,19 @@ def build_seq2seq_model(num_encode_layers, num_decode_layers, hidden_layer_size,
   for j in range(len(latent_dims)):
     if cell_type == 'LSTM':
       output_layers.append(
-          LSTM(latent_dims[len(latent_dims) - j - 1], return_sequences=True, return_state=True)
+          LSTM(latent_dims[len(latent_dims) - j - 1], return_sequences=True, return_state=True, dropout = dropout)
       )
       outputs, dh, dc = output_layers[-1](outputs, initial_state=encoder_states[2*j : 2*(j + 1)])
 
     elif cell_type == 'GRU':
       output_layers.append(
-          GRU(latent_dims[len(latent_dims) - j - 1], return_sequences=True, return_state=True)
+          GRU(latent_dims[len(latent_dims) - j - 1], return_sequences=True, return_state=True, dropout = dropout)
       )
       outputs, dh = output_layers[-1](outputs, initial_state=encoder_states[j])
 
     elif cell_type == 'RNN':
       output_layers.append(
-          SimpleRNN(latent_dims[len(latent_dims) - j - 1], return_sequences=True, return_state=True)
+          SimpleRNN(latent_dims[len(latent_dims) - j - 1], return_sequences=True, return_state=True, dropout = dropout)
       )
       outputs, dh = output_layers[-1](outputs, initial_state=encoder_states[j])
 
