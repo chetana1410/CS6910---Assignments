@@ -22,6 +22,9 @@ import pandas as pd
 from IPython.core.interactiveshell import InteractiveShell
 InteractiveShell.ast_node_interactivity = "all"
 
+from keras.models import Model
+from keras.layers import Input, LSTM, Dense, RNN, GRU, SimpleRNN
+
 train = pd.read_csv("/content/drive/MyDrive/RNN folder/dakshina_dataset_v1.0/hi/lexicons/hi.translit.sampled.train.tsv",delimiter="\t",header=None,names = ['hindi', 'word', 'number'])
 val = pd.read_csv('/content/drive/MyDrive/RNN folder/dakshina_dataset_v1.0/hi/lexicons/hi.translit.sampled.dev.tsv',delimiter="\t",header=None,names = ['hindi', 'word', 'number'])
 test = pd.read_csv('/content/drive/MyDrive/RNN folder/dakshina_dataset_v1.0/hi/lexicons/hi.translit.sampled.test.tsv',delimiter="\t",header=None,names = ['hindi', 'word', 'number'])
