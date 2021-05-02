@@ -29,9 +29,6 @@ train = pd.read_csv("/content/RNN folder/dakshina_dataset_v1.0/hi/lexicons/hi.tr
 val = pd.read_csv('/content/RNN folder/dakshina_dataset_v1.0/hi/lexicons/hi.translit.sampled.dev.tsv',delimiter="\t",header=None,names = ['hindi', 'word', 'number'])
 test = pd.read_csv('/content/RNN folder/dakshina_dataset_v1.0/hi/lexicons/hi.translit.sampled.test.tsv',delimiter="\t",header=None,names = ['hindi', 'word', 'number'])
 
-train.head()
-test.head()
-
 train.dropna(inplace = True)
 df = pd.concat([train, val, test])
 df['word'] = df['word'].apply(lambda x: x + "\n")
@@ -102,20 +99,29 @@ val_Y = data_Y[train.shape[0]: train.shape[0] + val.shape[0]]
 test_X = [data_X[0][train.shape[0] + val.shape[0]:], data_X[1][train.shape[0] + val.shape[0]:]]
 test_Y = data_Y[train.shape[0] + val.shape[0]:]
 
-latent_dim = 256
-batch_size = 64
-epochs = 5
-
 num_encoder_tokens = params[0]
 num_decoder_tokens = params[1]
 max_encoder_seq_length = params[2] 
 max_decoder_seq_length = params[3]
 
-encoder_inputs = []
-encoder_states = []
-decoder_inputs = []
-latent_dims = []
-decoder_outputs = []
+global encoder_inputs 
+global encoder_states 
+global decoder_inputs 
+global latent_dims 
+global decoder_outputs 
+
+def generate_latent_dim(hidden_layer_size, num_encode_layers):
+  if num_encode_layers == 1: return [hidden_layer_size]
+  elif num_encode_layers == 2:
+    if hidden_layer_size == 16:
+      return [16, 32]
+    else:
+      return [hidden_layer_size, hidden_layer_size // 2]
+  else:
+    if hidden_layer_size < 64:
+      return [hidden_layer_size, hidden_layer_size * 2, hidden_layer_size * 4]
+    else:
+      return [hidden_layer_size, hidden_layer_size // 2, hidden_layer_size // 4]
 
 def build_seq2seq_model(num_encode_layers, num_decode_layers, hidden_layer_size, dropout, beam_size, cell_type = 'LSTM'):
   model = keras.Sequential()
@@ -170,7 +176,7 @@ model = build_seq2seq_model(1, 3, 1024, 0, 0, 'GRU')
 model.summary()
 
 model.compile(
-    optimizer="rmsprop", loss="categorical_crossentropy", metrics=["accuracy"]
+    optimizer = "adam", loss = "categorical_crossentropy", metrics=["accuracy"]
 )
 model.fit(
     train_X,
@@ -241,19 +247,3 @@ def target_word(data,b):
   return output
 
 c = target_word(val_X,3)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
