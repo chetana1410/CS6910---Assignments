@@ -254,3 +254,74 @@ for seq_index in range(20):
     print("-")
     print("Input sentence:", list(df['word'])[seq_index])
     print("Decoded sentence:", decoded_sentence)
+    
+def get_potential(string, probab, char, char_prob):
+  string = string + [char]
+  probab += math.log(char_prob)
+  return [string, probab]
+
+def beam_search(input_seq, beam_size, cell_type = 'LSTM'):
+  potential_seq = [[['\t'], 0]]
+  explored_seq = []
+  
+  states = [encoder_model.predict(input_seq)] * beam_size 
+
+  for _ in range(max_decoder_seq_length):
+    seq_list = []
+    for i, seq in enumerate(potential_seq):
+      target_seq = np.zeros((1, 1, num_decoder_tokens))
+      last_character = seq[0][-1]
+      target_seq[0, 0, target_token_index[last_character[0]]] = 1.
+
+      if cell_type == 'LSTM':  
+        to_split = decoder_model.predict([target_seq] + states[i])
+      else:
+        to_split = decoder_model.predict([target_seq] + [states[i]])
+
+      output_tokens, states[i] = to_split[0], to_split[1:]
+      probabs, positions = tf.nn.top_k(output_tokens[0, 0], beam_size)
+
+      for k, index in enumerate(positions):
+        sequence = get_potential(seq[0], seq[1], reverse_target_char_index[index.numpy()], probabs[k].numpy())
+        last_ch = sequence[0][-1]
+        if last_ch[0] == '\n':
+          explored_seq.append(sequence)
+        else:
+          seq_list.append(sequence)
+        
+    seq_list = sorted(seq_list, key = lambda x : -x[1] / (len(x[0]) ** 0.8))
+    potential_seq = seq_list[:beam_size]
+    
+  explored_seq = explored_seq + potential_seq
+  explored_seq = sorted(explored_seq, key = lambda x : -x[1] / (len(x[0]) ** 0.8))
+
+  return explored_seq[: beam_size]    
+
+def similarity(word1, word2):
+  print(word1)
+  print(word2)
+  word1 = [char for char in word1]
+  word2 = [char for char in word2]
+  n, m = len(word1), len(word2)
+  dp = [[0 for i in range(m + 1)] for i in range(n + 1)]
+  for i in range(n + 1):
+    for j in range(m + 1):
+      if i == 0:
+        dp[i][j] = j
+      elif j == 0:
+        dp[i][j] = i
+      elif word1[i - 1] == word2[j - 1]:
+        dp[i][j] = dp[i - 1][j - 1]         
+      else:
+        dp[i][j] = 1 + min(dp[i][j - 1], dp[i - 1][j], dp[i - 1][j - 1])    
+  
+  return 1 - dp[n][m]/max(n,m)
+
+for seq_index in range(20):
+    input_seq1 = encoder_input_data[seq_index : seq_index + 1]
+    decoded_sentence = beam_search(input_seq1,3, 'RNN')
+    print("-")
+    print("Input sentence:", list(df['word'])[seq_index])
+    ans = [''.join(k[0]) for k in decoded_sentence]
+    print("Decoded sentence:", ans)
+    print("Similarity: ", similarity(list(df['hindi'])[seq_index], ans[0]))
