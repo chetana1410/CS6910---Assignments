@@ -50,14 +50,15 @@ def get_req_vec(tr_word, tr_hindi):
   max_decoder_seq_length = max([len(txt) for txt in tr_hindi])
   return [num_encoder_tokens, num_decoder_tokens, max_encoder_seq_length, max_decoder_seq_length]
 
-global input_token_index
-global target_token_index
-
 def generate_dataset(input_texts, target_texts, params):
   input_characters = sorted(list(get_unique_char(input_texts)))
   target_characters = sorted(list(get_unique_char(target_texts)))
-  
-  input_token_index = dict([(char, i) for i, char in enumerate(input_characters)])   
+
+  global input_token_index 
+  global target_token_index 
+  global encoder_input_data
+
+  input_token_index = dict([(char, i) for i, char in enumerate(input_characters)])
   target_token_index = dict([(char, i) for i, char in enumerate(target_characters)])
 
   num_encoder_tokens = params[0]
@@ -104,12 +105,6 @@ num_decoder_tokens = params[1]
 max_encoder_seq_length = params[2] 
 max_decoder_seq_length = params[3]
 
-global encoder_inputs 
-global encoder_states 
-global decoder_inputs 
-global latent_dims 
-global decoder_outputs 
-
 def generate_latent_dim(hidden_layer_size, num_encode_layers):
   if num_encode_layers == 1: return [hidden_layer_size]
   elif num_encode_layers == 2:
@@ -124,10 +119,16 @@ def generate_latent_dim(hidden_layer_size, num_encode_layers):
       return [hidden_layer_size, hidden_layer_size // 2, hidden_layer_size // 4]
 
 def build_seq2seq_model(num_encode_layers, num_decode_layers, hidden_layer_size, dropout, beam_size, cell_type = 'LSTM'):
-  model = keras.Sequential()
+  global encoder_inputs 
+  global encoder_states 
+  global decoder_inputs 
+  global latent_dims 
+  global output_layers
+  global time_layer
+
   latent_dims = generate_latent_dim(hidden_layer_size, num_encode_layers)
 
-  encoder_inputs = Input(shape=(None, num_encoder_tokens))
+  encoder_inputs = Input(shape=(None, num_encoder_tokens),  name='encoder_inputs')
 
   outputs = encoder_inputs
   encoder_states = []
@@ -143,7 +144,7 @@ def build_seq2seq_model(num_encode_layers, num_decode_layers, hidden_layer_size,
       outputs, h = SimpleRNN(latent_dims[j], return_state = True, return_sequences = True, dropout = dropout)(outputs)
       encoder_states += [h]
 
-  decoder_inputs = Input(shape=(None, num_decoder_tokens))
+  decoder_inputs = Input(shape=(None, num_decoder_tokens), name='decoder_inputs')
 
   outputs = decoder_inputs
   output_layers = []
@@ -166,84 +167,90 @@ def build_seq2seq_model(num_encode_layers, num_decode_layers, hidden_layer_size,
       )
       outputs, dh = output_layers[-1](outputs, initial_state=encoder_states[j])
 
-  decoder_dense = Dense(num_decoder_tokens, activation = 'softmax')
-  decoder_outputs = decoder_dense(outputs)
+  final_layer = Dense(num_decoder_tokens, activation='softmax')
+  time_layer = tf.keras.layers.TimeDistributed(final_layer)
+  decoder_outputs = time_layer(outputs)
+
   model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
 
   return model
 
-model = build_seq2seq_model(1, 3, 1024, 0, 0, 'GRU')
+model = build_seq2seq_model(2, 2, 128, 0.2, 0, 'RNN')
 model.summary()
 
 model.compile(
-    optimizer = "adam", loss = "categorical_crossentropy", metrics=["accuracy"]
+    optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"]
 )
+
 model.fit(
     train_X,
     train_Y,
-    batch_size = batch_size,
-    epochs = epochs,
+    batch_size = 64,
+    epochs = 10,
     validation_data = (val_X, val_Y),
 )
 
-# Define sampling models (modified for n-layer deep network)
+cell_type = 'RNN'
 encoder_model = Model(encoder_inputs, encoder_states)
+
 d_outputs = decoder_inputs
+
 decoder_states_inputs = []
 decoder_states = []
-for j in range(len(latent_dims))[::-1]:
-    current_state_inputs = [Input(shape=(latent_dims[j],)) for _ in range(2)]
 
-    temp = output_layers[len(latent_dims)-j-1](d_outputs, initial_state=current_state_inputs)
+for i in range(len(latent_dims)):
+    if cell_type == 'LSTM':
+        current_state_inputs = [tf.keras.Input(
+            shape=(latent_dims[(len(latent_dims) - i - 1)],)) for _ in range(2)]
+    else:
+        current_state_inputs = [tf.keras.Input(
+            shape=(latent_dims[(len(latent_dims) - i - 1)],)) for _ in range(1)]
+
+    temp = output_layers[i](d_outputs, initial_state=current_state_inputs)
 
     d_outputs, cur_states = temp[0], temp[1:]
 
     decoder_states += cur_states
     decoder_states_inputs += current_state_inputs
 
-decoder_model = Model(
+decoder_outputs = time_layer(d_outputs)
+
+decoder_model = tf.keras.Model(
     [decoder_inputs] + decoder_states_inputs,
     [decoder_outputs] + decoder_states)
 
+reverse_input_char_index = dict((i, char) for char, i in input_token_index.items())
+reverse_target_char_index = dict((i, char) for char, i in target_token_index.items())
 
-def beam_search_decoder(predictions, top_k = 3):
-    #start with an empty sequence with zero score
-    output_sequences = [([], 0)]
-    
-    #looping through all the predictions
-    for token_probs in predictions:
-        new_sequences = []
-        
-        #append new tokens to old sequences and re-score
-        for old_seq, old_score in output_sequences:
-            for char_index in range(len(token_probs)):
-                new_seq = old_seq + [char_index]
-                #considering log-likelihood for scoring
-                new_score = old_score + math.log(token_probs[char_index])
-                new_sequences.append((new_seq, new_score))
-                
-        #sort all new sequences in the de-creasing order of their score
-        output_sequences = sorted(new_sequences, key = lambda val: val[1], reverse = True)
-        
-        #select top-k based on score 
-        # *Note- best sequence is with the highest score
-        output_sequences = output_sequences[:top_k]
-        
-    return output_sequences
+def decode_sequence(input_seq, cell_type = 'LSTM'):
+    states_value = encoder_model.predict(input_seq)
+    target_seq = np.zeros((1, 1, num_decoder_tokens))
+    target_seq[0, 0, target_token_index["\t"]] = 1.0
+    stop_condition = False
+    decoded_sentence = []  
+    while not stop_condition:
+        if cell_type == 'LSTM':
+            to_split = decoder_model.predict([target_seq] + states_value)
+        else:
+            to_split = decoder_model.predict([target_seq] + [states_value])
 
-t = {j:i for i,j in target_token_index.items()}
+        output_tokens, states_value = to_split[0], to_split[1:]
 
-def target_word(data,b):
-  output=[]
-  pred=model.predict(data)
-  for i in pred:
-    o=beam_search_decoder(i,b)
-    p=np.argmax(np.array([_[1] for _ in o]))
-    o=o[p][0]
-    o=[t[_] for _ in o]
-    k=o.index('\n')
-    o=''.join(o[:k])
-    output.append(o)
-  return output
+        sampled_token_index = np.argmax(output_tokens[0, 0])
+        sampled_char = reverse_target_char_index[sampled_token_index]
+        decoded_sentence.append(sampled_char)
 
-c = target_word(val_X,3)
+        if sampled_char == '\n' or len(decoded_sentence) > max_decoder_seq_length:
+            stop_condition = True
+
+        target_seq = np.zeros((1, 1, num_decoder_tokens))
+        target_seq[0, 0, sampled_token_index] = 1.
+
+    return "".join(decoded_sentence)
+
+for seq_index in range(20):
+    input_seq1 = encoder_input_data[seq_index : seq_index + 1]
+    decoded_sentence = decode_sequence(input_seq1, 'RNN')
+    print("-")
+    print("Input sentence:", list(df['word'])[seq_index])
+    print("Decoded sentence:", decoded_sentence)
