@@ -247,13 +247,6 @@ def decode_sequence(input_seq, cell_type = 'LSTM'):
         target_seq[0, 0, sampled_token_index] = 1.
 
     return "".join(decoded_sentence)
-
-for seq_index in range(20):
-    input_seq1 = encoder_input_data[seq_index : seq_index + 1]
-    decoded_sentence = decode_sequence(input_seq1, 'RNN')
-    print("-")
-    print("Input sentence:", list(df['word'])[seq_index])
-    print("Decoded sentence:", decoded_sentence)
     
 def get_potential(string, probab, char, char_prob):
   string = string + [char]
@@ -317,11 +310,93 @@ def similarity(word1, word2):
   
   return 1 - dp[n][m]/max(n,m)
 
-for seq_index in range(20):
-    input_seq1 = encoder_input_data[seq_index : seq_index + 1]
-    decoded_sentence = beam_search(input_seq1,3, 'RNN')
-    print("-")
-    print("Input sentence:", list(df['word'])[seq_index])
-    ans = [''.join(k[0]) for k in decoded_sentence]
-    print("Decoded sentence:", ans)
-    print("Similarity: ", similarity(list(df['hindi'])[seq_index], ans[0]))
+
+def generate_indices():
+  return np.random.randint(low=train.shape[0], high=train.shape[0] + val.shape[0], size=100)
+
+
+def train_():
+    default_hyperparams = dict(
+        epochs=100,
+        dropout=0.2,
+        num_encoder_layers=1,
+        num_decoder_layers=1,
+        batch_size=32,
+        hl_size=32,
+        cell_type='RNN',
+        optimizer='adam',
+        beam_size=3 ,
+        search_type='greedy' 
+    )
+
+    
+    wandb.init(config = default_hyperparams)
+    config = wandb.config
+    if config.search_type=='greedy':
+      wandb.run.name = str(config.cell_type)+'_'+'num_encoder_layers='+str(config.num_encoder_layers)+'_'+'num_decoder_layers='+str(config.num_decoder_layers)+'_hl_size='+str(config.hl_size)+'_dp='+str(config.dropout)+'_search='+str(config.search_type)+'_batch_size='+str(config.batch_size)+'_epochs='+str(config.epochs)
+    else:
+      wandb.run.name = str(config.cell_type)+'_'+'num_encoder_layers='+str(config.num_encoder_layers)+'_'+'num_decoder_layers='+str(config.num_decoder_layers)+'_hl_size='+str(config.hl_size)+'_dp='+str(config.dropout)+'_search='+str(config.search_type)+'_beam_size='+str(config.beam_size)+'_batch_size='+str(config.batch_size)+'_epochs='+str(config.epochs)
+    wandb.run.save()
+    
+    cell_type=config.cell_type
+    search_type=config.search_type
+    beam_size=config.beam_size
+    model = build_seq2seq_model(config.num_encoder_layers, config.num_decoder_layers, config.hl_size, config.dropout, config.beam_size, config.cell_type)
+    model.compile(optimizer = config.optimizer, loss = "categorical_crossentropy")
+    model.fit(
+        train_X,
+        train_Y,
+        batch_size = config.batch_size,
+        epochs = config.epochs,
+        validation_data = (val_X, val_Y))
+    
+    global encoder_model
+    global decoder_model
+    
+    encoder_model = Model(encoder_inputs, encoder_states)
+    d_outputs = decoder_inputs
+
+    decoder_states_inputs = []
+    decoder_states = []
+
+    for i in range(len(config.latent_dims)):
+        if config.cell_type == 'LSTM':
+            current_state_inputs = [tf.keras.Input(
+                shape=(latent_dims[(len(config.latent_dims) - i - 1)],)) for _ in range(2)]
+        else:
+            current_state_inputs = [tf.keras.Input(
+                shape=(latent_dims[(len(config.latent_dims) - i - 1)],)) for _ in range(1)]
+
+        temp = output_layers[i](d_outputs, initial_state=current_state_inputs)
+
+        d_outputs, cur_states = temp[0], temp[1:]
+
+        decoder_states += cur_states
+        decoder_states_inputs += current_state_inputs
+
+    decoder_outputs = time_layer(d_outputs)
+
+    decoder_model = tf.keras.Model(
+        [decoder_inputs] + decoder_states_inputs,
+        [decoder_outputs] + decoder_states)
+    
+    
+    score = 0.0
+    if config.search_type=='greedy':      
+        for seq_index in generate_indices():
+            input_seq1 = encoder_input_data[seq_index : seq_index + 1]
+            decoded_sentence = decode_sequence(input_seq1, cell_type)
+            score += similarity(list(df['hindi'])[seq_index], decoded_sentence)        
+        score/=100
+    else:
+        for seq_index in generate_indices():
+            input_seq1 = encoder_input_data[seq_index : seq_index + 1]
+            decoded_sentence = beam_search(input_seq1, config.beam_size, config.cell_type)
+            ans = [''.join(k[0]) for k in decoded_sentence]
+            score += similarity(list(df['hindi'])[seq_index], ans[0])        
+        score/=100
+  
+    wandb.log({"Accuracy":score})
+    
+    
+    
