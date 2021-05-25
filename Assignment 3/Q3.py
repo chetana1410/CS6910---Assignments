@@ -379,7 +379,15 @@ acc
 
 score
 
-a=pd.DataFrame(p)
-a.to_csv('predicted.txt')
-b=pd.DataFrame(q)
-b.to_csv('predicted_beam.txt')
+p=pd.DataFrame(p)
+p[0] = p[0].apply(lambda x : x[1:-1])
+
+q=pd.DataFrame(q)
+q[0] = q[0].apply(lambda x : x[1:-1])
+q[1] = q[1].apply(lambda x : x[1:-1])
+q[2] = q[2].apply(lambda x : x[1:-1])
+
+p.to_csv('p.csv')
+q.to_csv('q.csv')
+p.to_csv('p.txt')
+q.to_csv('q.txt')
