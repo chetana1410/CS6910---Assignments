@@ -23,3 +23,5 @@ This repository contains the following files and folders -
 * `Q5b,Q5d,Q6.py` - This contains code to predict decoded sequence using the best model with attention.
    * The code generates attention heatmaps for 12 inputs from test data.
    * It also helps us to visualise the interactions between different components in a RNN based model using `visualize_connectivity` function.
+* `Visualizations.pdf` - This contains the pic depecting when the model is decoding the i-th character in the output which is the input character that it is looking at. 
+* `attention_heatmaps.png` - This is the attention heatmap plot of 12 inputs from test data.
