@@ -410,4 +410,5 @@ sweep_config = {
         }
     }
 
-
+sweep_id = wandb.sweep(sweep_config, project = 'Assignment3_180521')
+wandb.agent(sweep_id , function = train_, count = 60)
