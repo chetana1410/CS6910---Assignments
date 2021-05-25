@@ -97,3 +97,5 @@ def visualize_connectivity(sentence):
   '''
  
   display(html_print(html_format_str))
+	
+visualize_connectivity('sunil')
