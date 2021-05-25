@@ -50,7 +50,8 @@ def visualize_connectivity(sentence):
 
   
 
-  predicted = ''.join(result.split()[:-1])
+  result = result.split(' ')
+  predicted = ''.join(result[:result.index('<end>')])
 
   html_format_str += '''
         <p style="margin: 8px 0">Prediction: <b>{}</b></p>
