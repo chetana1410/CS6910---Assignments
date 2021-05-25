@@ -367,6 +367,47 @@ def train_():
 
     wandb.log({"Accuracy": score, "Train_acc" : acc})
 
+    
+sweep_config = {
+   #'program': train(),
+    'method': 'bayes',         
+    'metric': {
+        'name': 'Accuracy',     
+        'goal': 'maximize'      
+    },
+    'parameters': {
+        
+        'epochs': {
+            'min':10,
+            'max':20
+        },
+        'dropout': {
+            'values': [0.2]
+        },
+       
+        'num_encoder_layers':{
+            'values':[1, 2, 3]
+        },
+        'hl_size':{
+            'values':[64, 128, 256, 512, 1024]
+        },
+        'cell_type':{
+            'values':['LSTM', 'GRU', 'RNN']
+        },
+        'batch_size':{
+            'values':[64, 128, 256]
+        },
+        'beam_size':{
+            'values':[2,3]
+        },
+        'optimizer':{
+            'values':['adam']
+        },
+        'search_type':{
+            'values':['greedy', 'beam_search']
+        }
 
+        }
+    }
 
 
