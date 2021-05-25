@@ -299,30 +299,6 @@ def evaluate(sentence):
 
   return result, sentence, attention_plot
 
-from pathlib import Path
-from matplotlib.font_manager import FontProperties
-
-# function for plotting the attention weights
-def plot_attention(attention, sentence, predicted_sentence): 
-
-# point to the font location with an absolute path
-  h= Path('/content/Lohit-Devanagari.ttf')
-
-# configure the Hindi font
-
-  hindi_font = FontProperties(fname=h)
-  fig = plt.figure(figsize=(10, 10))
-  ax = fig.add_subplot(1, 1, 1)
-  ax.matshow(attention, cmap='viridis')
-
-  ax.set_xticklabels([''] + sentence, fontsize=14, rotation=90)
-  ax.set_yticklabels([''] + predicted_sentence, fontsize=25,fontproperties=hindi_font)
-
-  ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
-  ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
-
-  plt.show()
-
 def generate_indices():
   return np.random.randint(low=0, high =  val.shape[0], size=150)
 
