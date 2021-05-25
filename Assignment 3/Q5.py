@@ -86,17 +86,17 @@ target_tensor_val    = target_tensor[train.shape[0]:train.shape[0]+val.shape[0]]
 input_tensor_test    = input_tensor[train.shape[0]+val.shape[0]:]
 target_tensor_test   = target_tensor[train.shape[0]+val.shape[0]:]
 
-print(len(input_tensor_train), len(target_tensor_train), len(input_tensor_val), len(target_tensor_val),len(input_tensor_test ),len(target_tensor_test ))
+# print(len(input_tensor_train), len(target_tensor_train), len(input_tensor_val), len(target_tensor_val),len(input_tensor_test ),len(target_tensor_test ))
 
 def convert(lang, tensor):
   for t in tensor:
     if t != 0:
       print(f'{t} ----> {lang.index_word[t]}')
 
-print("Input Language; index to word mapping")
+# print("Input Language; index to word mapping")
 convert(inp_lang, input_tensor_train[0])
-print()
-print("Target Language; index to word mapping")
+# print()
+# print("Target Language; index to word mapping")
 convert(targ_lang, target_tensor_train[0])
 
 BUFFER_SIZE = len(input_tensor_train)
@@ -227,5 +227,217 @@ class Decoder(tf.keras.Model):
     return x, decoder_states, attention_weights
 
 loss_object = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True, reduction='none')
+
+def loss_function(real, pred):
+  mask = tf.math.logical_not(tf.math.equal(real, 0))
+  loss_ = loss_object(real, pred)
+
+  mask = tf.cast(mask, dtype=loss_.dtype)
+  loss_ *= mask
+
+  return tf.reduce_mean(loss_)
+
+def train_step(encoder,decoder,inp, targ, batch_size, optimizer):
+  loss = 0
+  with tf.GradientTape() as tape:
+    enc_output, enc_hidden = encoder(inp)
+
+    dec_hidden = enc_hidden
+    enc_output = enc_output[-1]
+    dec_input = tf.expand_dims([targ_lang.word_index['<start>']] * batch_size, 1)
+
+    iter = 1
+    for t in range(1, targ.shape[1]):
+      predictions, dec_hidden, _ = decoder(dec_input, enc_output, dec_hidden)
+
+      loss += loss_function(targ[:, t], predictions)
+
+      dec_input = tf.expand_dims(targ[:, t], 1)
+
+  batch_loss = (loss / int(targ.shape[1]))
+  variables = encoder.trainable_variables + decoder.trainable_variables
+
+  gradients = tape.gradient(loss, variables)
+  
+  optimizer.apply_gradients(zip(gradients, variables))
+
+  return batch_loss
+
+def evaluate(sentence):
+  attention_plot = np.zeros((max_length_targ, max_length_inp))
+
+  sentence = '<start> '+sentence.replace("", " ")[1: -1]+ ' <end>'
+
+  inputs = [inp_lang.word_index[i] for i in sentence.split(' ')]
+  inputs = tf.keras.preprocessing.sequence.pad_sequences([inputs],
+                                                         maxlen=max_length_inp,
+                                                         padding='post')
+  inputs = tf.convert_to_tensor(inputs)
+
+  result = ''
+  
+  enc_out, enc_hidden = encoder(inputs)
+  enc_out = enc_out[-1]
+  dec_hidden = enc_hidden
+  dec_input = tf.expand_dims([targ_lang.word_index['<start>']], 0)
+
+  for t in range(max_length_targ):
+
+    predictions, dec_hidden, attention_weights = decoder(dec_input, enc_out, dec_hidden)
+
+    attention_weights = tf.reshape(attention_weights, (-1, ))
+    attention_plot[t] = attention_weights.numpy()
+
+    predicted_id = tf.argmax(predictions[0]).numpy()
+
+    result += targ_lang.index_word[predicted_id] + ' '
+
+    if targ_lang.index_word[predicted_id] == '<end>':
+      return result, sentence, attention_plot
+
+    dec_input = tf.expand_dims([predicted_id], 0)
+
+  return result, sentence, attention_plot
+
+from pathlib import Path
+from matplotlib.font_manager import FontProperties
+
+# function for plotting the attention weights
+def plot_attention(attention, sentence, predicted_sentence): 
+
+# point to the font location with an absolute path
+  h= Path('/content/Lohit-Devanagari.ttf')
+
+# configure the Hindi font
+
+  hindi_font = FontProperties(fname=h)
+  fig = plt.figure(figsize=(10, 10))
+  ax = fig.add_subplot(1, 1, 1)
+  ax.matshow(attention, cmap='viridis')
+
+  ax.set_xticklabels([''] + sentence, fontsize=14, rotation=90)
+  ax.set_yticklabels([''] + predicted_sentence, fontsize=25,fontproperties=hindi_font)
+
+  ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
+  ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
+
+  plt.show()
+
+def generate_indices():
+  return np.random.randint(low=0, high =  val.shape[0], size=150)
+
+def train():
+  default_hyperparams = dict(
+        epochs = 100,
+        dropout = 0.2,
+        num_encoder_layers = 1,
+        num_decoder_layers = 1,
+        batch_size = 32,
+        hl_size = 32,
+        cell_type = 'RNN',
+        optimizer = 'adam',
+        embedding_dim =256        
+    )  
+   
+  wandb.init(config = default_hyperparams)
+  config = wandb.config
+  wandb.run.name = str(config.cell_type)+'_'+'num_encoder_layers='+str(config.num_encoder_layers)+'_'+'num_decoder_layers='+str(config.num_encoder_layers)+'_hl_size='+str(config.hl_size)+'_dp='+str(config.dropout)+'_batch_size='+str(config.batch_size)+'_epochs='+str(config.epochs)
+  wandb.run.save()
+
+  latent_dims = [config.hl_size] * config.num_encoder_layers
+
+  dataset = tf.data.Dataset.from_tensor_slices((input_tensor_train, target_tensor_train)).shuffle(BUFFER_SIZE)
+  dataset = dataset.batch(config.batch_size, drop_remainder=True)
+  global steps_per_epoch
+  steps_per_epoch = len(input_tensor_train)//config.batch_size
+
+  encoder = Encoder(vocab_inp_size, config.embedding_dim, config.batch_size, latent_dims, config.dropout, config.cell_type)
+  decoder = Decoder(vocab_tar_size, config.embedding_dim,config.batch_size, latent_dims, config.dropout, config.cell_type)
+
+  global optimizer
+  if config.optimizer=='adam':
+    optimizer = tf.keras.optimizers.Adam()
+
+  checkpoint_dir = './training_checkpoints'
+  checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
+  checkpoint = tf.train.Checkpoint(optimizer=optimizer,
+                                  encoder=encoder,
+                                  decoder=decoder)
+
+  EPOCHS = config.epochs
+  score=0
+  wandb.log({"Accuracy": score})
+  
+
+  for epoch in range(EPOCHS):
+    start = time.time()
+
+    total_loss = 0
+
+    for (batch, (inp, targ)) in enumerate(dataset.take(steps_per_epoch)):
+      batch_loss = train_step(encoder,decoder,inp, targ, config.batch_size, optimizer)
+      total_loss += batch_loss
+
+      if batch % 100 == 0:
+        print(f'Epoch {epoch+1} Batch {batch} Loss {batch_loss.numpy():.4f}')
+
+    print(f'Epoch {epoch+1} Loss {total_loss/steps_per_epoch:.4f}')
+    print(f'Time taken for 1 epoch {time.time()-start:.2f} sec\n')
+
+  iter=0
+  for seq_index in generate_indices():
+    iter+=1
+    result,__,_=evaluate(val['english'].iloc[seq_index])[0]
+    result = ''.join(result[:-1])
+    result = result.split(' ')
+    result = ''.join(result[:-1])
+    if result==val['hindi'].iloc[seq_index]:
+      score+=1
+  score/=iter
+  wandb.log({"Accuracy": score})
+
+
+sweep_config = {
+   #'program': train(),
+    'method': 'bayes',         
+    'metric': {
+        'name': 'Accuracy',     
+        'goal': 'maximize'      
+    },
+    'parameters': {
+        
+        'epochs': {
+            'min':8,
+            'max':12
+        },
+        'dropout': {
+            'values': [0, 0.2, 0.3]
+        },
+       
+        'num_encoder_layers':{
+            'values':[1, 2]
+        },
+        'hl_size':{
+            'values':[64, 128]
+        },
+        'cell_type':{
+            'values':['LSTM', 'GRU', 'RNN']
+        },
+        'batch_size':{
+            'values':[32, 64, 128]
+        },
+        
+       
+        'optimizer':{
+            'values':['adam']
+        },
+        
+         'embedding_dim':{
+            'values':[128,256,512]
+        }
+
+    }           
+        
+  }
 
 
