@@ -483,3 +483,22 @@ def visualize_connectivity(sentence):
   display(html_print(html_format_str))
 	
 visualize_connectivity('sunil')
+
+# Accuracy score on the test data.
+
+l = []
+iter = 0
+test_score = 0
+for seq_index in range(test.shape[0]):
+  iter+=1
+  result, _ , _ = evaluate(test['english'].iloc[seq_index])
+  result = result.split(' ')
+  result = ''.join(result[:result.index('<end>')])
+  # print(result)
+  # print(test['hindi'].iloc[seq_index])
+  l.append(result)
+  if result == test['hindi'].iloc[seq_index]:
+    test_score += 1
+
+test_score /= iter
+print(test_score)
