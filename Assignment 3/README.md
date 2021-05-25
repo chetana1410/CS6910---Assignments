@@ -19,3 +19,7 @@ This repository contains the following files and folders -
 * `Q5a.py` - This contains code to build encoder and decoder model with Attention.
    * The code is also flexible such that the input character embeddings, the dimension of the hidden states of the encoders and decoders, the cell (RNN, LSTM, GRU) and the number of layers in the encoder and decoder, dropout, batch size and epochs can be changed.
    * It also contains code to predict decoded sequence and plot attention heatmap.
+   
+* `Q5b,Q5d,Q6.py` - This contains code to predict decoded sequence using the best model with attention.
+   * The code generates attention heatmaps for 12 inputs from test data.
+   * It also helps us to visualise the interactions between different components in a RNN based model using `visualize_connectivity` function.
