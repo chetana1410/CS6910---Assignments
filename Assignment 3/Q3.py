@@ -303,14 +303,12 @@ search_type='beam'
 beam_size=3
 score = 0
 acc = 0
-for i in range(len(latent_dims)):
 
+for j in range(len(latent_dims))[::-1]: 
   if cell_type == 'LSTM':
-      current_state_inputs = [tf.keras.Input(
-          shape=(latent_dims[(len(latent_dims) - i - 1)],)) for _ in range(2)]
+      current_state_inputs = [Input(shape=(latent_dims[j],)) for _ in range(2)]
   else:
-      current_state_inputs = [tf.keras.Input(
-          shape=(latent_dims[(len(latent_dims) - i - 1)],)) for _ in range(1)]
+      current_state_inputs = [Input(shape=(latent_dims[j],)) for _ in range(1)]
 
   temp = output_layers[i](d_outputs, initial_state=current_state_inputs)
 
