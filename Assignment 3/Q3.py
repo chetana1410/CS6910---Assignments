@@ -310,7 +310,7 @@ for j in range(len(latent_dims))[::-1]:
   else:
       current_state_inputs = [Input(shape=(latent_dims[j],)) for _ in range(1)]
 
-  temp = output_layers[i](d_outputs, initial_state=current_state_inputs)
+  temp = output_layers[len(latent_dims)-j-1](d_outputs, initial_state = current_state_inputs)
 
   d_outputs, cur_states = temp[0], temp[1:]
 
