@@ -23,6 +23,7 @@ from IPython.core.interactiveshell import InteractiveShell
 InteractiveShell.ast_node_interactivity = "all"
 from keras.models import Model
 from keras.layers import Input, LSTM, Dense, RNN, GRU, SimpleRNN
+from keras.layers import TimeDistributed
 import math
 import wandb
 from wandb.keras import WandbCallback
@@ -172,7 +173,7 @@ def build_seq2seq_model(num_encode_layers, num_decode_layers, hidden_layer_size,
       outputs, dh = output_layers[-1](outputs, initial_state=encoder_states[j])
 
   final_layer = Dense(num_decoder_tokens, activation='softmax')
-  time_layer = tf.keras.layers.TimeDistributed(final_layer)
+  time_layer = TimeDistributed(final_layer)
   decoder_outputs = time_layer(outputs)
 
   model = Model([encoder_inputs, decoder_inputs], decoder_outputs)
