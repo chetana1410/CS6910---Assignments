@@ -1,4 +1,5 @@
 # CS6910 Assignment 3
+A detailed report can be found [here](https://wandb.ai/dl_assgn/Assignment3_180521/reports/Assignment-3--Vmlldzo3MTMyNTU)
 This repository contains the following files and folders -
 * `predictions_vanilla` - This folder contains predictions of the best model without attention.
 * `predictions_attention` -  This folder contains predictions of the best model with attention.
